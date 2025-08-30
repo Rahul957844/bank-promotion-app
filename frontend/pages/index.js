@@ -7,14 +7,15 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch("https://bank-backend.username.repl.co/accounts/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        account_id: parseInt(accountId),
-        introducer_id: introducerId ? parseInt(introducerId) : null
-      }),
-    });
+    const res = await fetch("https://bank-backend.onrender.com/accounts/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      account_id: parseInt(accountId),
+      introducer_id: introducerId ? parseInt(introducerId) : null
+    }),
+});
+
     const data = await res.json();
     setResult(data);
   };
