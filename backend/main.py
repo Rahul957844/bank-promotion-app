@@ -5,7 +5,10 @@ from sqlalchemy import create_engine, Column, Integer, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 
 # ---------------- Database Setup ----------------
+# Replace with your actual Render PostgreSQL URL
 DATABASE_URL = "postgresql://postgres_username_password_at_host_5432_user:HXunPUi1argogvua4FNPwbusTsOcM0nP@dpg-d2pedd56ubrc73c8sgu0-a.oregon-postgres.render.com/postgres_username_password_at_host_5432"
+
+print("📌 Using database URL:", DATABASE_URL)  # debug log
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -15,16 +18,15 @@ app = FastAPI()
 
 # ---------------- CORS ----------------
 origins = [
-    "https://bank-promotion-757bne3xn-sandhya-s-projects-5016aed4.vercel.app",
-    "http://localhost:3000",
+    "https://bank-promotion-757bne3xn-sandhya-s-projects-5016aed4.vercel.app",  # frontend
+    "http://localhost:3000",  # local dev
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   
+    allow_origins=["*"],          # allow these origins
     allow_credentials=True,
-    
-    allow_methods=["*"],
+    allow_methods=["*"],            # GET, POST, PUT, DELETE
     allow_headers=["*"],
 )
 
@@ -39,6 +41,7 @@ class Account(Base):
     beneficiary = relationship("Account", remote_side=[account_id], foreign_keys=[beneficiary_id])
 
 Base.metadata.create_all(bind=engine)
+print("✅ Database tables created")  # debug log
 
 # ---------------- Schemas ----------------
 class AccountCreate(BaseModel):
@@ -48,57 +51,53 @@ class AccountCreate(BaseModel):
 # ---------------- Routes ----------------
 @app.get("/")
 def read_root():
+    print("➡️ GET / called")  # debug log
     return {"message": "Bank API is running!"}
 
 @app.get("/accounts/")
 def get_accounts():
+    print("➡️ GET /accounts/ called")  # debug log
     db = SessionLocal()
-    try:
-        accounts = db.query(Account).all()
-        return [
-            {"AccountID": acc.account_id, "IntroducerID": acc.introducer_id, "BeneficiaryID": acc.beneficiary_id}
-            for acc in accounts
-        ]
-    finally:
-        db.close()
+    accounts = db.query(Account).all()
+    return [
+        {"AccountID": acc.account_id, "IntroducerID": acc.introducer_id, "BeneficiaryID": acc.beneficiary_id}
+        for acc in accounts
+    ]
 
 @app.post("/accounts/")
 def create_account(data: AccountCreate):
+    print("➡️ POST /accounts/ called with:", data.dict())  # debug log
     db = SessionLocal()
-    try:
-        introducer = None
-        if data.introducer_id:
-            introducer = db.query(Account).filter(Account.account_id == data.introducer_id).first()
-            if not introducer:
-                raise HTTPException(status_code=400, detail="Introducer not found")
 
-        # Count accounts introduced by this introducer
-        introduced_accounts = db.query(Account).filter(Account.introducer_id == data.introducer_id).order_by(Account.account_id).all()
-        sequence = len(introduced_accounts) + 1  # this account's position
+    introducer = None
+    if data.introducer_id:
+        introducer = db.query(Account).filter(Account.account_id == data.introducer_id).first()
+        if not introducer:
+            print("❌ Introducer not found:", data.introducer_id)  # debug log
+            raise HTTPException(status_code=400, detail="Introducer not found")
 
-        # Determine beneficiary
-        if sequence % 2 == 1:  # odd
-            beneficiary_id = data.introducer_id
-        else:  # even
-            if introducer.introducer_id:  # introducer has an introducer
-                parent_introducer = db.query(Account).filter(Account.account_id == introducer.introducer_id).first()
-                beneficiary_id = parent_introducer.beneficiary_id if parent_introducer else None
-            else:
-                beneficiary_id = None
+    # count how many accounts this introducer has introduced
+    count = db.query(Account).filter(Account.introducer_id == data.introducer_id).count() + 1
+    print(f"Introducer {data.introducer_id} has introduced {count} accounts")  # debug log
 
-        new_acc = Account(
-            account_id=data.account_id,
-            introducer_id=data.introducer_id,
-            beneficiary_id=beneficiary_id
-        )
-        db.add(new_acc)
-        db.commit()
-        db.refresh(new_acc)
+    if count % 2 == 1:
+        beneficiary_id = data.introducer_id
+    else:
+        beneficiary_id = introducer.introducer_id if introducer else None
 
-        return {
-            "AccountID": new_acc.account_id,
-            "IntroducerID": new_acc.introducer_id,
-            "BeneficiaryID": new_acc.beneficiary_id
-        }
-    finally:
-        db.close()
+    new_acc = Account(
+        account_id=data.account_id,
+        introducer_id=data.introducer_id,
+        beneficiary_id=beneficiary_id
+    )
+    db.add(new_acc)
+    db.commit()
+    db.refresh(new_acc)
+
+    print("✅ Account created:", new_acc.account_id)  # debug log
+
+    return {
+        "AccountID": new_acc.account_id,
+        "IntroducerID": new_acc.introducer_id,
+        "BeneficiaryID": new_acc.beneficiary_id
+    }
