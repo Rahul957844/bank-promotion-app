@@ -1,9 +1,10 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 
-# For mobile demo use SQLite (no PostgreSQL needed)
+# PostgreSQL connection
 DATABASE_URL = "postgresql://postgres_username_password_at_host_5432_user:HXunPUi1argogvua4FNPwbusTsOcM0nP@dpg-d2pedd56ubrc73c8sgu0-a.oregon-postgres.render.com/postgres_username_password_at_host_5432"
 engine = create_engine(DATABASE_URL)
 
@@ -12,6 +13,21 @@ Base = declarative_base()
 
 app = FastAPI()
 
+
+origins = [
+    "https://bank-promotion-757bne3xn-sandhya-s-projects-5016aed4.vercel.app",  # your Vercel frontend
+    "http://localhost:3000",  # for local testing
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Database Models ---
 class Account(Base):
     __tablename__ = "accounts"
     account_id = Column(Integer, primary_key=True, index=True)
@@ -23,10 +39,12 @@ class Account(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# --- Pydantic Schemas ---
 class AccountCreate(BaseModel):
     account_id: int
     introducer_id: int | None = None
 
+# --- API Routes ---
 @app.post("/accounts/")
 def create_account(data: AccountCreate):
     db = SessionLocal()
@@ -50,9 +68,9 @@ def create_account(data: AccountCreate):
     db.add(new_acc)
     db.commit()
     db.refresh(new_acc)
+
     return {
         "AccountID": new_acc.account_id,
         "IntroducerID": new_acc.introducer_id,
         "BeneficiaryID": new_acc.beneficiary_id
-  }
-  
+    }
