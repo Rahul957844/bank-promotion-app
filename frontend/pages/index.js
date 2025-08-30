@@ -7,24 +7,34 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch("https://bank-promotion-app.onrender.com/accounts/", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    account_id: 101,
-    introducer_id: 100, // or null
-  }),
-});
+    try {
+      const res = await fetch("https://bank-promotion-app.onrender.com/accounts/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          account_id: parseInt(accountId),
+          introducer_id: introducerId ? parseInt(introducerId) : null,
+        }),
+      });
 
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Server Error:", res.status, errText);
+        return;
+      }
 
-    const data = await res.json();
-    setResult(data);
+      const data = await res.json();
+      console.log("✅ Response from backend:", data);
+      setResult(data);
+    } catch (error) {
+      console.error("❌ Fetch failed:", error);
+    }
   };
 
   return (
-    <div style={{padding:20}}>
+    <div style={{ padding: 20 }}>
       <h1>New Bank Account</h1>
       <form onSubmit={handleSubmit}>
         <input
@@ -41,13 +51,14 @@ export default function Home() {
         /><br/>
         <button type="submit">Submit</button>
       </form>
+
       {result && (
         <div>
-          <p>AccountID: {result.AccountID}</p>
-          <p>IntroducerID: {result.IntroducerID}</p>
-          <p>BeneficiaryID: {result.BeneficiaryID}</p>
+          <p>AccountID: {result.account_id}</p>
+          <p>IntroducerID: {result.introducer_id}</p>
+          <p>BeneficiaryID: {result.beneficiary_id}</p>
         </div>
       )}
     </div>
   );
-            }
+}
