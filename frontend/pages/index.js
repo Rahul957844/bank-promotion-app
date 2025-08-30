@@ -7,7 +7,7 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const res = await fetch("https://bank-backend.onrender.com/accounts/", {
+    const res = await fetch("https://bank-promotion-app.onrender.com/accounts/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
