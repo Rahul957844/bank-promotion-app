@@ -24,11 +24,12 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        # 👈 Restrict to frontend + local
+    allow_origins=["*"],   
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ---------------- Models ----------------
 class Account(Base):
