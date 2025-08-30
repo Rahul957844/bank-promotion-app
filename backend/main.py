@@ -1,0 +1,58 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, ForeignKey
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+
+# For mobile demo use SQLite (no PostgreSQL needed)
+DATABASE_URL = "sqlite:///./bank.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+app = FastAPI()
+
+class Account(Base):
+    __tablename__ = "accounts"
+    account_id = Column(Integer, primary_key=True, index=True)
+    introducer_id = Column(Integer, ForeignKey("accounts.account_id"), nullable=True)
+    beneficiary_id = Column(Integer, ForeignKey("accounts.account_id"), nullable=True)
+
+    introducer = relationship("Account", remote_side=[account_id], foreign_keys=[introducer_id])
+    beneficiary = relationship("Account", remote_side=[account_id], foreign_keys=[beneficiary_id])
+
+Base.metadata.create_all(bind=engine)
+
+class AccountCreate(BaseModel):
+    account_id: int
+    introducer_id: int | None = None
+
+@app.post("/accounts/")
+def create_account(data: AccountCreate):
+    db = SessionLocal()
+    introducer = db.query(Account).filter(Account.account_id == data.introducer_id).first()
+    if data.introducer_id and not introducer:
+        raise HTTPException(status_code=400, detail="Introducer not found")
+
+    # count how many people this introducer introduced
+    count = db.query(Account).filter(Account.introducer_id == data.introducer_id).count() + 1
+
+    if count % 2 == 1:
+        beneficiary_id = data.introducer_id
+    else:
+        beneficiary_id = introducer.introducer_id if introducer else None
+
+    new_acc = Account(
+        account_id=data.account_id,
+        introducer_id=data.introducer_id,
+        beneficiary_id=beneficiary_id
+    )
+    db.add(new_acc)
+    db.commit()
+    db.refresh(new_acc)
+    return {
+        "AccountID": new_acc.account_id,
+        "IntroducerID": new_acc.introducer_id,
+        "BeneficiaryID": new_acc.beneficiary_id
+  }
+  
