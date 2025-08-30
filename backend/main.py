@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 
 # ---------------- Database Setup ----------------
-# ✅ Replace this with your actual Render PostgreSQL URL
+# ✅ Replace with your actual PostgreSQL Render URL
 DATABASE_URL = "postgresql://postgres_username_password_at_host_5432_user:HXunPUi1argogvua4FNPwbusTsOcM0nP@dpg-d2pedd56ubrc73c8sgu0-a.oregon-postgres.render.com/postgres_username_password_at_host_5432"
 
 print("📌 Using database URL:", DATABASE_URL)  # debug log
@@ -18,13 +18,13 @@ app = FastAPI()
 
 # ---------------- CORS ----------------
 origins = [
-    "https://bank-promotion-757bne3xn-sandhya-s-projects-5016aed4.vercel.app",  # frontend
-    "http://localhost:3000",  # local dev
+    "https://bank-promotion-757bne3xn-sandhya-s-projects-5016aed4.vercel.app",  # ✅ Vercel frontend
+    "http://localhost:3000",  # for local dev
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins,        # 👈 Restrict to frontend + local
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,46 +58,52 @@ def read_root():
 def get_accounts():
     print("➡️ GET /accounts/ called")  # debug log
     db = SessionLocal()
-    accounts = db.query(Account).all()
-    return [
-        {"AccountID": acc.account_id, "IntroducerID": acc.introducer_id, "BeneficiaryID": acc.beneficiary_id}
-        for acc in accounts
-    ]
+    try:
+        accounts = db.query(Account).all()
+        print(f"📊 Found {len(accounts)} accounts")  # debug log
+        return [
+            {"AccountID": acc.account_id, "IntroducerID": acc.introducer_id, "BeneficiaryID": acc.beneficiary_id}
+            for acc in accounts
+        ]
+    finally:
+        db.close()
 
 @app.post("/accounts/")
 def create_account(data: AccountCreate):
     print("➡️ POST /accounts/ called with:", data.dict())  # debug log
     db = SessionLocal()
+    try:
+        introducer = None
+        if data.introducer_id:
+            introducer = db.query(Account).filter(Account.account_id == data.introducer_id).first()
+            if not introducer:
+                print("❌ Introducer not found:", data.introducer_id)
+                raise HTTPException(status_code=400, detail="Introducer not found")
 
-    introducer = None
-    if data.introducer_id:
-        introducer = db.query(Account).filter(Account.account_id == data.introducer_id).first()
-        if not introducer:
-            print("❌ Introducer not found:", data.introducer_id)  # debug log
-            raise HTTPException(status_code=400, detail="Introducer not found")
+        # count how many accounts this introducer has introduced
+        count = db.query(Account).filter(Account.introducer_id == data.introducer_id).count() + 1
+        print(f"📊 Introducer {data.introducer_id} has introduced {count} accounts")
 
-    # count how many accounts this introducer has introduced
-    count = db.query(Account).filter(Account.introducer_id == data.introducer_id).count() + 1
-    print(f"Introducer {data.introducer_id} has introduced {count} accounts")  # debug log
+        if count % 2 == 1:
+            beneficiary_id = data.introducer_id
+        else:
+            beneficiary_id = introducer.introducer_id if introducer else None
 
-    if count % 2 == 1:
-        beneficiary_id = data.introducer_id
-    else:
-        beneficiary_id = introducer.introducer_id if introducer else None
+        new_acc = Account(
+            account_id=data.account_id,
+            introducer_id=data.introducer_id,
+            beneficiary_id=beneficiary_id
+        )
+        db.add(new_acc)
+        db.commit()
+        db.refresh(new_acc)
 
-    new_acc = Account(
-        account_id=data.account_id,
-        introducer_id=data.introducer_id,
-        beneficiary_id=beneficiary_id
-    )
-    db.add(new_acc)
-    db.commit()
-    db.refresh(new_acc)
+        print("✅ Account created:", new_acc.account_id)
 
-    print("✅ Account created:", new_acc.account_id)  # debug log
-
-    return {
-        "AccountID": new_acc.account_id,
-        "IntroducerID": new_acc.introducer_id,
-        "BeneficiaryID": new_acc.beneficiary_id
-    }
+        return {
+            "AccountID": new_acc.account_id,
+            "IntroducerID": new_acc.introducer_id,
+            "BeneficiaryID": new_acc.beneficiary_id
+        }
+    finally:
+        db.close()
