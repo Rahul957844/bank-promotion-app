@@ -8,13 +8,16 @@ export default function Home() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const res = await fetch("https://bank-promotion-app.onrender.com/accounts/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      account_id: parseInt(accountId),
-      introducer_id: introducerId ? parseInt(introducerId) : null
-    }),
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    account_id: 101,
+    introducer_id: 100, // or null
+  }),
 });
+
 
     const data = await res.json();
     setResult(data);
