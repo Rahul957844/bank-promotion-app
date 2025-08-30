@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, Column, Integer, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 
 # For mobile demo use SQLite (no PostgreSQL needed)
-DATABASE_URL = "postgresql://postgres_username_password_at_host_5432_user:HXunPUi1argogvua4FNPwbusTsOcM0nP@dpg-d2pedd56ubrc73c8sgu0-a/postgres_username_password_at_host_5432
+DATABASE_URL = "postgresql://postgres_username_password_at_host_5432_user:HXunPUi1argogvua4FNPwbusTsOcM0nP@dpg-d2pedd56ubrc73c8sgu0-a.oregon-postgres.render.com/postgres_username_password_at_host_5432"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
